@@ -1,23 +1,30 @@
-#define MAX_MAP_SIZE 65530
+#define MAX_MAP_SIZE 4000000000
 #define MAX_MAP_KEY_LENGTH 64
 
 #define MAP_MEMALLOCATION_ERROR 0
-#define MAP_COLLISION_ERROR 1
-#define MAP_OVERFLOW_ERROR 2
-#define MAP_IS_NULL_ERROR 3
-#define MAP_ITEM_NOT_FOUND 5
-#define MAP_ILLEGAL_SIZE 6
-#define MAP_ILLEGAL_KEY_LENGTH 7
-#define MAP_ILLEGAL_KEY 8
-#define MAP_FREE_ITEM_ERROR 9
-#define MAP_EXECUTION_SUCCESS 10
+#define MAP_OVERFLOW_ERROR 1
+#define MAP_ITEM_NOT_FOUND_ERROR 3
+#define MAP_ILLEGAL_KEY_ERROR 4
+#define MAP_ILLEGAL_SIZE_ERROR 5
+#define MAP_ILLEGAL_KEY_LENGTH_ERROR 6
+#define MAP_EXECUTION_SUCCESS 8
+#define MAP_FUNC_ILLEGAL_PARAM 9
 
-#define MAP_CAPACITIY_EXPAND_ON 15
-#define GROWTH_AT 0.85
-#define SHRINK_AT 0.3
+#define MAP_KEY_GROWTH_SIZE 1
+#define MAP_KEY_SHRINK_SIZE 2
+
+#define MAP_SMALL_SIZE 2000
+#define MAP_SMALL_GROWTH_AT 0.7
+#define MAP_SMALL_SHRINK_AT 0.4
+#define MAP_MEDIUM_SIZE 20000
+#define MAP_MEDIUM_GROWTH_AT 0.8
+#define MAP_MEDIUM_SHRINK_AT 0.5
+#define MAP_BIG_SIZE 200000
+#define MAP_BIG_GROWTH_AT 0.9
+#define MAP_BIG_SHRINK_AT 0.5
 
 typedef unsigned char Map_Exec_Code;
-typedef unsigned short Map_Item_Index;
+typedef unsigned int Map_Item_Hash;
 
 typedef struct Map_Item {
 	char* key;
@@ -26,17 +33,25 @@ typedef struct Map_Item {
 
 typedef struct Map {
 	struct Map_Item** items;
-	unsigned short capacity;
-	unsigned short occupied;
+	Map_Item_Hash capacity;
+	Map_Item_Hash occupied;
 } Map;
 
-Map_Item_Index generate_map_item_index(const char* item_key, unsigned short map_capacity);
-Map_Exec_Code init_map(Map* map, unsigned short map_capacity);
-Map_Exec_Code set_to_map(Map* map, const char* item_key, void* item_value, unsigned short item_value_size);
-Map_Exec_Code find_in_map(Map* map, Map_Item** map_item, const char* item_key);
-Map_Exec_Code free_map(Map* map);
-/*You can remove map with set of parameters, map + item_key or map + hash.*/
-Map_Exec_Code free_map_item(Map* map, const char* item_key, Map_Item_Index* hash);
-Map_Exec_Code growth_map(Map* map);
-
-unsigned char is_map_to_small(unsigned short occupied, unsigned short capacity);
+/* Hashing and Collision handle functions */
+Map_Exec_Code map_generate_hash(Map_Item_Hash* item_hash, Map_Item_Hash map_capacity, const char* item_key);
+Map_Exec_Code map_find_free_hash(Map_Item_Hash* item_hash, Map* map);
+Map_Exec_Code map_find_item_hash_by_key(Map_Item_Hash* item_hash, Map* map, const char* item_key);
+Map_Exec_Code map_use_hash_algorithm(Map_Item_Hash* item_hash, Map_Item_Hash* index, Map* map);
+/* Collision strategies helper functions */
+float get_shrink_factor(Map_Item_Hash map_capacity);
+float get_growth_factor(Map_Item_Hash map_capacity);
+unsigned char is_map_to_small(Map_Item_Hash occupied, Map_Item_Hash capacity);
+unsigned char is_map_to_big(Map_Item_Hash occupied, Map_Item_Hash capacity);
+Map_Item_Hash get_prime_from_capacity(Map_Item_Hash map_capacity);
+/* API functions */
+Map_Exec_Code map_init(Map* map, Map_Item_Hash map_capacity);
+Map_Exec_Code map_set_item(Map* map, const char* item_key, void* item_value, unsigned short item_value_size);
+Map_Exec_Code map_get_item(Map* map, Map_Item** map_item, const char* item_key);
+Map_Exec_Code map_free(Map* map);
+Map_Exec_Code map_free_item(Map* map, Map_Item_Hash* item_hash, const char* item_key);
+Map_Exec_Code map_resize(Map* map, unsigned char direction);
