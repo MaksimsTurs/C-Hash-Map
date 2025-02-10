@@ -1,91 +1,92 @@
-#include <stdlib.h>
-#include <string.h>
-
 #include "Map.h"
 
 /*
-	############################################
-		Hashing and Collision handle functions
-	###########################################
+############################################
+   Hashing and Collision handle functions
+###########################################
 */
 
-Map_Exec_Code map_generate_hash(Map_Item_Hash* item_hash, Map_Item_Hash map_capacity, const char* item_key) {
-	if(item_hash == NULL || item_key == NULL) {
-		return MAP_FUNC_ILLEGAL_PARAM;
-	}
+Map_Return_Code map_generate_hash(Map_Hash* hash, Map_UInt size, Map_CString key) {
+	if(hash == NULL || key == NULL)
+		return MAP_ERROR_ILLEGAL_PARAM;
 	
-	*item_hash = 5381;	
+	Map_Hash local_hash = 5381;
+	
+	while(*key++)
+		local_hash = ((local_hash << 5) + local_hash) + (char)(*key);
+	*hash = local_hash % size;
+	
+	return MAP_EXECUTION_SUCCESS;
+}
 
-	while(*item_key++) {
-		*item_hash = ((*item_hash << 5) + *item_hash) + (char)(*item_key);
+Map_Return_Code map_find_free_hash(Map_Hash* hash, Map map) {
+	if(hash == NULL)
+		return MAP_ERROR_ILLEGAL_PARAM;
+	else if(map.occupied == MAP_MAX_SIZE)
+		return MAP_ERROR_OVERFLOW;
+
+	Map_UInt index = 0;
+	Map_Hash local_hash = *hash;
+
+	while(map.items[local_hash] != NULL) {
+		// Because iteration can start from any location, 
+		// set hash to 0 to iterate from the start again.
+		map_reset_hash_if(&local_hash, map.size);
+		map_use_hash_algorithm(&local_hash, &index, map);
 	}
 
-	*item_hash = *item_hash % map_capacity;
+	*hash = local_hash;
 
 	return MAP_EXECUTION_SUCCESS;
 }
 
-Map_Exec_Code map_find_free_hash(Map_Item_Hash* item_hash, Map* map) {
-	if(map == NULL || item_hash == NULL) {
-		return MAP_FUNC_ILLEGAL_PARAM;
-	} else if(map->occupied == MAX_MAP_SIZE) {
-		return MAP_OVERFLOW_ERROR;
-	}
-
-	Map_Item_Hash index = 0;
-
-	while(map->items[*item_hash] != NULL) {
-		// Because iteration can start from any location, I reset item_hash to iterate from the start again.
-		if(*item_hash + 1 >= map->capacity) {
-			*item_hash = 0;
-		}
-		map_use_hash_algorithm(item_hash, &index, map);
-	}
-
-	return MAP_EXECUTION_SUCCESS;
-}
-
-Map_Exec_Code map_find_item_hash_by_key(Map_Item_Hash* item_hash, Map* map, const char* item_key) {
-	if(item_hash == NULL || map == NULL || item_key == NULL) {
-		return MAP_FUNC_ILLEGAL_PARAM;
-	}
+Map_Return_Code map_find_hash_by_key(Map_Hash* hash, Map map, Map_CString key) {
+	if(hash == NULL || key == NULL)
+		return MAP_ERROR_ILLEGAL_PARAM;
 	
-	Map_Item_Hash index = 1;
-	Map_Item_Hash probe_count = 0;
+	Map_UInt index = 1;
+	Map_UInt probe_count = 0;
+	Map_Hash local_hash = *hash;
+	Map_Return_Code exec_code = 0;
 
 	// In worst case, if we have two different keys with two identical hashes,
 	// this loop will go through the entire map.
-	while(probe_count <= map->capacity) {
-		// Because iteration can start from any location, I reset item_hash to iterate from the start again.
-		if(*item_hash + 1 >= map->capacity) {
-			*item_hash = 0;
-		}
-		if(map->items[*item_hash] != NULL && strcmp(item_key, map->items[*item_hash]->key) == 0) {
+	while(probe_count <= map.size) {
+		// Because iteration can start from any location, 
+		// set hash to 0 to iterate from the start again.
+		map_reset_hash_if(&local_hash, map.size);
+		if(map.items[local_hash] != NULL && strcmp(key, map.items[local_hash]->key) == 0) {
+			// Hash was found.
+			*hash = local_hash;
 			return MAP_EXECUTION_SUCCESS;
 		}
-		// Recalculate item_hash.
-		Map_Exec_Code hash_calc_result = map_use_hash_algorithm(item_hash, &index, map);
+		// Hash was not found, calculate next hash.
+		exec_code = map_use_hash_algorithm(&local_hash, &index, map);
+		if(exec_code != MAP_EXECUTION_SUCCESS)
+			return exec_code;
 		probe_count++;
-		if(hash_calc_result != MAP_EXECUTION_SUCCESS) {
-			return hash_calc_result;
-		}
 	}
-	return MAP_ITEM_NOT_FOUND_ERROR;
+
+	// Hash was not found.
+	return MAP_ERROR_ITEM_NOT_FOUND;
 }
 
-Map_Exec_Code map_use_hash_algorithm(Map_Item_Hash* item_hash, Map_Item_Hash* index, Map* map) {
-	if(item_hash == NULL || map == NULL || (map->capacity > MAP_SMALL_SIZE && index == NULL)) {
-		return MAP_FUNC_ILLEGAL_PARAM;
-	}
+Map_Return_Code map_use_hash_algorithm(Map_Hash* hash, Map_Hash* index, Map map) {
+	if(hash == NULL || 
+		// If map is bigger than MAP_SMALL_SIZE and index was not passed
+		// you can not use Quadratic probe.
+		(map.size > MAP_SMALL_SIZE && index == NULL))
+		return MAP_ERROR_ILLEGAL_PARAM;
 
-	if(map->capacity <= MAP_SMALL_SIZE) {
+	if(map.size <= MAP_SMALL_SIZE) {
 		// Linear probe.
-		*item_hash += 1;
+		*hash += 1;
 	}	else {
 		//Quadratic probe.
-		*item_hash = (*item_hash + (*index ^ 2)) % map->capacity;
+		*hash = (*hash + (*index ^ 2)) % map.size;
 		*index += 1;
 	}	
+
 	return MAP_EXECUTION_SUCCESS;
 }
 
@@ -95,44 +96,40 @@ Map_Exec_Code map_use_hash_algorithm(Map_Item_Hash* item_hash, Map_Item_Hash* in
 	###########################################
 */
 
-float get_shrink_factor(Map_Item_Hash map_capacity) {
-	if(map_capacity >= MAP_BIG_SIZE) {
+float get_shrink_factor(Map_UInt size) {
+	if(size >= MAP_BIG_SIZE)
 		return MAP_BIG_SHRINK_AT;
-	} else if(map_capacity >= MAP_MEDIUM_SIZE) {
+	else if(size >= MAP_MEDIUM_SIZE)
 		return MAP_MEDIUM_SHRINK_AT;
-	} else if(map_capacity <= MAP_SMALL_SIZE) {
+	else if(size <= MAP_SMALL_SIZE)
 		return MAP_SMALL_SHRINK_AT;
-	}
 	return MAP_SMALL_SHRINK_AT;
 }
 
-float get_growth_factor(Map_Item_Hash map_capacity) {
-	if(map_capacity >= MAP_BIG_SIZE) {
+float get_growth_factor(Map_UInt size) {
+	if(size >= MAP_BIG_SIZE)
 		return MAP_BIG_GROWTH_AT;
-	} else if(map_capacity >= MAP_MEDIUM_SIZE) {
+	else if(size >= MAP_MEDIUM_SIZE)
 		return MAP_MEDIUM_GROWTH_AT;
-	} else if(map_capacity <= MAP_SMALL_SIZE) {
+	else if(size <= MAP_SMALL_SIZE)
 		return MAP_SMALL_GROWTH_AT;
-	}
 	return MAP_SMALL_GROWTH_AT;
 }
 
-Map_Item_Hash get_prime_from_capacity(Map_Item_Hash map_capacity) {
-	return (map_capacity * 2) > MAX_MAP_SIZE ? MAX_MAP_SIZE : map_capacity * 2;
+Map_UInt get_prime_from(Map_UInt from) {
+	return (from * 2) >= MAP_MAX_SIZE ? MAP_MAX_SIZE : from * 2;
 }
 
-unsigned char is_map_to_small(Map_Item_Hash occupied, Map_Item_Hash capacity) {
-	if(occupied == MAX_MAP_SIZE || occupied == 0) {
+Map_Bool is_map_to_small(Map_UInt occupied, Map_UInt size) {
+	if(occupied == MAP_MAX_SIZE || occupied == 0)
 		return 0;
-	}
-	return ((float)occupied / capacity) >= get_growth_factor(capacity);
+	return ((float)occupied / size) >= get_growth_factor(size);
 }
 
-unsigned char is_map_to_big(Map_Item_Hash occupied, Map_Item_Hash capacity) {
-	if(occupied == MAX_MAP_SIZE || occupied == 0) {
+Map_Bool is_map_to_big(Map_UInt occupied, Map_UInt size) {
+	if(occupied == MAP_MAX_SIZE || occupied == 0)
 		return 0;
-	}
-	return ((float)occupied / capacity) <= get_shrink_factor(capacity);
+	return ((float)occupied / size) <= get_shrink_factor(size);
 }
 
 /*
@@ -141,138 +138,160 @@ unsigned char is_map_to_big(Map_Item_Hash occupied, Map_Item_Hash capacity) {
 	###########################################
 */
 
-Map_Exec_Code map_init(Map* map, Map_Item_Hash map_capacity) {
-	if(map == NULL) {
-		return MAP_FUNC_ILLEGAL_PARAM;
-	} else if(map_capacity == 0) {
-		return MAP_ILLEGAL_SIZE_ERROR;
+Map_Return_Code map_collect(Map map, Map_Collection* iterator) {
+	Map_UInt iterator_index = 0;
+
+	iterator->items = malloc(map.size * sizeof(Map_Item*));
+	if(iterator->items == NULL)
+		return MAP_ERROR_MEMALLOCATION;
+
+	for(Map_UInt index = 0; index < map.size; index++) {
+		if(map.items[index] != NULL) {
+			iterator->items[iterator_index] = map.items[index];
+			iterator_index++;
+		}
 	}
 
-	map->items = (Map_Item**)calloc(map_capacity, sizeof(Map_Item*));
-	if(map->items == NULL) {
-		return MAP_MEMALLOCATION_ERROR;
-	}
+	iterator->size = map.size;
 
-	map->capacity = map_capacity;
+	return MAP_EXECUTION_SUCCESS;
+}
+
+Map_Return_Code map_delete_collection(Map_Collection* iterator) {
+	if(iterator->items == NULL)
+		return MAP_ERROR_ILLEGAL_PARAM;
+
+	free(iterator->items);
+	
+	return MAP_EXECUTION_SUCCESS;
+}
+
+Map_Return_Code map_init(Map* map, Map_UInt size) {
+	if(map == NULL)
+		return MAP_ERROR_ILLEGAL_PARAM;
+	else if(size == 0)
+		return MAP_ERROR_ILLEGAL_SIZE;
+
+	map->items = (Map_Item**)calloc(size, sizeof(Map_Item*));
+	if(map->items == NULL)
+		return MAP_ERROR_MEMALLOCATION;
+
+	map->size = size;
 	map->occupied = 0;
 
 	return MAP_EXECUTION_SUCCESS;
 }
 
-Map_Exec_Code map_set_item(Map* map, const char* item_key, void* item_value, unsigned short item_value_size) {
-	if(map == NULL || item_key == NULL) {
-		return MAP_FUNC_ILLEGAL_PARAM;
-	} else if(map->occupied >= MAX_MAP_SIZE) {
-		return MAP_OVERFLOW_ERROR;
-	}
-
-	// Rehash map elements and enlarge map if necessary.
-	if(is_map_to_small(map->occupied + 1, map->capacity)) {
-		Map_Exec_Code map_resize_result = map_resize(map, MAP_KEY_GROWTH_SIZE);
-		if(map_resize_result != MAP_EXECUTION_SUCCESS) {
-			return map_resize_result;
-		}
-	}
-		
-	// Generate map item hash.
-	Map_Item_Hash map_item_hash = 0;
-	Map_Exec_Code map_generate_hash_result = map_generate_hash(&map_item_hash, map->capacity, item_key);
-	if(map_generate_hash_result != MAP_EXECUTION_SUCCESS) {
-		return map_generate_hash_result;
-	}
-
-	if(map->items[map_item_hash] != NULL) {
-		// Check if there is an element with the same key.
-		Map_Exec_Code map_find_item_hash_by_key_result = map_find_item_hash_by_key(&map_item_hash, map, item_key);
-		if(map_find_item_hash_by_key_result != MAP_EXECUTION_SUCCESS && map_find_item_hash_by_key_result != MAP_ITEM_NOT_FOUND_ERROR) {
-			return map_find_item_hash_by_key_result;
-		}
-		// Element with same key was found, remove element from memory, 
-		// it will be created a element with same key but new value.
-		if(map_find_item_hash_by_key_result == MAP_EXECUTION_SUCCESS) {
-			Map_Exec_Code free_item_result = map_free_item(map, &map_item_hash, item_key);
-			if(free_item_result != MAP_EXECUTION_SUCCESS) {
-				return free_item_result;
-			}
-			map->occupied--;
-		// Element with same key was not found but hashes are equal.
-		// Find next free hash for new element.
-		} else {
-			Map_Exec_Code find_free_hash_result = map_find_free_hash(&map_item_hash, map);
-			if(find_free_hash_result != MAP_EXECUTION_SUCCESS) {
-				return find_free_hash_result;
-			}
-		}
-	}
-
-	unsigned char item_key_length = strlen(item_key) + 1;
-	if(item_key_length > MAX_MAP_KEY_LENGTH) {
-		return MAP_ILLEGAL_KEY_LENGTH_ERROR;
-	}
+Map_Return_Code map_set_item(Map* map, Map_CString key, Map_Any value, Map_UShort value_size) {
+	if(map == NULL || key == NULL)
+		return MAP_ERROR_ILLEGAL_PARAM;
+	else if(map->occupied >= MAP_MAX_SIZE)
+		return MAP_ERROR_OVERFLOW;
 
 	// Map element is stored together with its key and value to 
-	// reduce amount of memory allocation [Map | Key | Value].
-	unsigned char size_of_map = sizeof(Map_Item);
-	Map_Item* map_item = (Map_Item*)malloc(size_of_map + item_key_length + item_value_size);
-	if(map_item == NULL) {
-		return MAP_MEMALLOCATION_ERROR;
+	// reduce amount of memory allocation and memory free execution [Map | Key | Value].
+	Map_Item* item = NULL;
+	Map_Hash item_hash = 0;
+	Map_Return_Code exec_code = 0;
+	Map_UChar key_length = strlen(key) + 1;
+	Map_UChar size_of_map = sizeof(Map_Item);
+	if(key_length > MAP_MAX_KEY_LENGTH)
+		return MAP_ERROR_ILLEGAL_KEY_LENGTH;
+
+	// Rehash map elements and enlarge map if necessary.
+	if(is_map_to_small(map->occupied + 1, map->size)) {
+		exec_code = map_resize(map, MAP_KEY_GROWTH_SIZE);
+		if(exec_code != MAP_EXECUTION_SUCCESS)
+			return exec_code;
+	} 
+
+	exec_code = map_generate_hash(&item_hash, map->size, key);
+	if(exec_code != MAP_EXECUTION_SUCCESS)
+		return exec_code;
+
+	// Collision was found.
+	if(map->items[item_hash] != NULL) {
+		// Check if there is an element with the same key.
+		exec_code = map_find_hash_by_key(&item_hash, *map, key);
+		// Element was not found and executuin was not ended successfuly.
+		if(exec_code != MAP_EXECUTION_SUCCESS && exec_code != MAP_ERROR_ITEM_NOT_FOUND)
+			return exec_code;
+
+		if(exec_code == MAP_EXECUTION_SUCCESS) {
+			// Element with the same key was found, realloc memory block, 
+			// and save new value.
+			item = (Map_Item*)realloc(map->items[item_hash], size_of_map + key_length + value_size);
+			if(item == NULL)
+				return MAP_ERROR_MEMALLOCATION;
+		} else {
+			// Element with same key was not found but hashes are equal.
+			// Find next free hash for new element.
+			exec_code = map_find_free_hash(&item_hash, *map);
+			if(exec_code != MAP_EXECUTION_SUCCESS)
+				return exec_code;
+			item = (Map_Item*)malloc(size_of_map + key_length + value_size);
+			if(item == NULL)
+				return MAP_ERROR_MEMALLOCATION;
+			map->occupied++;
+		}
+	} else {
+		// No collision was found, alloc memory for new element.
+		item = (Map_Item*)malloc(size_of_map + key_length + value_size);
+		if(item == NULL)
+			return MAP_ERROR_MEMALLOCATION;
+		map->occupied++;
 	}
 
 	// Calculating the start position in memory block for key and value.
-	char* item_key_position = (char*)map_item + size_of_map;
-	void* item_value_position = (void*)item_key_position + item_key_length;
+	Map_String item_key_position = (Map_String)item + size_of_map;
+	Map_Any item_value_position = (Map_Any)item_key_position + key_length;
 
-	map_item->key = item_key_position;
-	map_item->value = item_value_position;
+	item->key = item_key_position;
+	item->value = item_value_position;
 
-	memmove(map_item->key, item_key, item_key_length);
-	memmove(map_item->value, item_value, item_value_size);
+	memmove((Map_Any)item->key, key, key_length);
+	memmove(item->value, value, value_size);
 
-	map->items[map_item_hash] = map_item;
-	map->occupied++;
+	map->items[item_hash] = item;
 	
 	return MAP_EXECUTION_SUCCESS;
 }
 
-Map_Exec_Code map_resize(Map* map, unsigned char direction) {
-	if(map == NULL) {
-		return MAP_FUNC_ILLEGAL_PARAM;
-	}
+Map_Return_Code map_resize(Map* map, Map_UChar direction) {
+	if(map == NULL)
+		return MAP_ERROR_ILLEGAL_PARAM;
 
-	Map_Item_Hash old_capacity = map->capacity;
+	Map_UInt old_capacity = map->size;
+	Map_Hash hash = 0;
+	Map_Return_Code exec_code = 0;
 	Map_Item** new_items = {0};
 
-	if(direction == MAP_KEY_GROWTH_SIZE) {
-		map->capacity = get_prime_from_capacity(map->capacity);
-		new_items = (Map_Item**)calloc(map->capacity, sizeof(Map_Item*));
-	} else if(direction == MAP_KEY_SHRINK_SIZE) {
-		map->capacity = get_prime_from_capacity(map->capacity) / 2;
-		new_items = (Map_Item**)realloc(map->items, map->capacity * sizeof(Map_Item*));
-	} else {
-		return MAP_FUNC_ILLEGAL_PARAM;
-	}
+	if(direction == MAP_KEY_GROWTH_SIZE)
+		map->size = get_prime_from(map->size);
+	else if(direction == MAP_KEY_SHRINK_SIZE)
+		map->size = get_prime_from(map->occupied);
+	else
+		return MAP_ERROR_ILLEGAL_PARAM;
 
-	if(new_items == NULL) {
-		return MAP_MEMALLOCATION_ERROR;
-	}
+	new_items = (Map_Item**)calloc(map->size, sizeof(Map_Item*));
+	if(new_items == NULL)
+		return MAP_ERROR_MEMALLOCATION;
 
-	for(Map_Item_Hash index = 0; index < old_capacity; index++) {
-		// Copy all existed elements
+	for(Map_UInt index = 0; index < old_capacity; index++) {
+		// Copy all existed elements in map.
     if(map->items[index] != NULL) {
-			Map_Item_Hash map_item_hash = 0;
-			Map_Exec_Code generate_hash_result = map_generate_hash(&map_item_hash, map->capacity, map->items[index]->key);
-			if(generate_hash_result != MAP_EXECUTION_SUCCESS) {
-				return generate_hash_result;
+			exec_code = map_generate_hash(&hash, map->size, map->items[index]->key);
+			if(exec_code != MAP_EXECUTION_SUCCESS)
+				return exec_code;
+			// Check if elements with same key are exist in new map.
+			// When exist, find free hash.
+			if(new_items[hash] != NULL) {
+				exec_code = map_find_free_hash(&hash, *map);
+				if(exec_code != MAP_EXECUTION_SUCCESS)
+					return exec_code;
 			}
-			// Check for collision in new items array.
-			if(new_items[map_item_hash] != NULL) {
-				// Recalculate new item hash when collision was found.
-				Map_Exec_Code find_free_hash_result = map_find_free_hash(&map_item_hash, map);
-				if(find_free_hash_result != MAP_EXECUTION_SUCCESS) {
-					return find_free_hash_result;
-				}
-			}
-			new_items[map_item_hash] = map->items[index];
+
+			new_items[hash] = map->items[index];
 		}
 	}
 
@@ -282,80 +301,90 @@ Map_Exec_Code map_resize(Map* map, unsigned char direction) {
 	return MAP_EXECUTION_SUCCESS;
 }
 
-Map_Exec_Code map_get_item(Map* map, Map_Item** map_item, const char* item_key) {
-	if(map == NULL || map_item == NULL || item_key == NULL) {
-		return MAP_FUNC_ILLEGAL_PARAM;
-	}
+Map_Return_Code map_get_item(Map map, Map_Item** item, Map_CString key) {
+	if(item == NULL || key == NULL)
+		return MAP_ERROR_ILLEGAL_PARAM;
 
-	Map_Item_Hash map_item_hash = 0;
+	Map_Hash hash = 0;
+	Map_Return_Code exec_code = 0;
 
-	Map_Exec_Code generate_hash_result = map_generate_hash(&map_item_hash, map->capacity, item_key);
-	if(generate_hash_result != MAP_EXECUTION_SUCCESS) {
-		*map_item = NULL;
-		return generate_hash_result;
+	// Get start position.
+	exec_code = map_generate_hash(&hash, map.size, key);
+	if(exec_code != MAP_EXECUTION_SUCCESS) {
+		*item = NULL;
+		return exec_code;
 	}
 	
-	Map_Exec_Code find_item_by_key_result = map_find_item_hash_by_key(&map_item_hash, map, item_key);
-	if(find_item_by_key_result != MAP_EXECUTION_SUCCESS) {
-		*map_item = NULL;
-		return find_item_by_key_result;
+	// Find element with same key from start position.
+	exec_code = map_find_hash_by_key(&hash, map, key);
+	if(exec_code != MAP_EXECUTION_SUCCESS) {
+		*item = NULL;
+		return exec_code;
 	}
 
-	*map_item = map->items[map_item_hash];
-	if(*map_item == NULL) {
-		*map_item = NULL;
-		return MAP_ITEM_NOT_FOUND_ERROR;
-	}
+	*item = map.items[hash];
 
-	return MAP_EXECUTION_SUCCESS;
+	return *item == NULL ? MAP_ERROR_ITEM_NOT_FOUND : MAP_EXECUTION_SUCCESS;
 }
 
-Map_Exec_Code map_free(Map* map) {
-	for(Map_Item_Hash hash = 0; hash < map->capacity; hash++) {
-		if(map->items[hash] != NULL) {
-			free(map->items[hash]);
-			map->items[hash] = NULL;
+Map_Return_Code map_delete(Map* map) {
+	for(Map_UInt index = 0; index < map->size; index++) {
+		if(map->items[index] != NULL) {
+			free(map->items[index]);
+			map->items[index] = NULL;
 		}	
 	}
 
 	free(map);
+
 	return MAP_EXECUTION_SUCCESS;
 }
 
-Map_Exec_Code map_free_item(Map* map, Map_Item_Hash* item_hash, const char* item_key) {
-	if(map == NULL && item_key == NULL) {
-		return MAP_FUNC_ILLEGAL_PARAM;
-	}
-
-	if(item_hash != NULL && map->items[*item_hash] == NULL) {
-		return MAP_ITEM_NOT_FOUND_ERROR;
-	} else if(item_hash != NULL && map->items[*item_hash] != NULL) {
-		free(map->items[*item_hash]);
-		map->items[*item_hash] = NULL;
-		return MAP_EXECUTION_SUCCESS;	
-	}
+Map_Return_Code map_delete_item(Map* map, Map_Hash* hash, Map_CString key) {
+	if(map == NULL && key == NULL)
+		return MAP_ERROR_ILLEGAL_PARAM;
 	
-	Map_Item_Hash map_item_hash = 0;
+	Map_Hash local_hash = hash == NULL ? 0 : *hash;
+	Map_Return_Code exec_code = 0;
 
-	Map_Exec_Code generate_hash_result = map_generate_hash(&map_item_hash, map->capacity, item_key);
-	if(generate_hash_result != MAP_EXECUTION_SUCCESS) {
-		return generate_hash_result;
+	if(hash != NULL && map->items[local_hash] == NULL) {
+		return MAP_ERROR_ITEM_NOT_FOUND;
+	} else if(hash != NULL && map->items[local_hash] != NULL) {
+		// Delete map item by defined hash.
+		free(map->items[local_hash]);
+		map->items[local_hash] = NULL;
+		map->occupied--;
+	} else {	
+		// Delete map item by key.
+		exec_code = map_generate_hash(&local_hash, map->size, key);
+		if(exec_code != MAP_EXECUTION_SUCCESS)
+			return exec_code;
+		
+		exec_code = map_find_hash_by_key(&local_hash, *map, key);
+		if(exec_code != MAP_EXECUTION_SUCCESS)
+			return exec_code;
+
+		free(map->items[local_hash]);
+		map->items[local_hash] = NULL;
+		map->occupied--;
 	}
-	
-	Map_Exec_Code find_item_by_key_result = map_find_item_hash_by_key(&map_item_hash, map, item_key);
-	if(find_item_by_key_result != MAP_EXECUTION_SUCCESS) {
-		return find_item_by_key_result;
-	}
 
-	free(map->items[map_item_hash]);
-	map->items[map_item_hash] = NULL;
-
-	if(is_map_to_big(map->occupied, map->capacity)) {
-		Map_Exec_Code shrink_map_result = map_resize(map, MAP_KEY_SHRINK_SIZE);
-		if(shrink_map_result != MAP_EXECUTION_SUCCESS) {
-			return shrink_map_result;
-		}
+	if(is_map_to_big(map->occupied, map->size)) {
+		exec_code = map_resize(map, MAP_KEY_SHRINK_SIZE);
+		if(exec_code != MAP_EXECUTION_SUCCESS)
+			return exec_code;
 	}
 
 	return MAP_EXECUTION_SUCCESS;
+}
+
+/*
+	############################################
+							Utility functions
+	###########################################
+*/
+
+void map_reset_hash_if(Map_Hash* hash, Map_UInt size) {
+	if(*hash + 1 >= size)
+		*hash = 0;
 }
