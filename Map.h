@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 
 // Restriction constants
 #define MAP_MAX_SIZE 4000000000

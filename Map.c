@@ -141,7 +141,7 @@ Map_Bool is_map_to_big(Map_UInt occupied, Map_UInt size) {
 Map_Return_Code map_collect(Map map, Map_Collection* iterator) {
 	Map_UInt iterator_index = 0;
 
-	iterator->items = malloc(map.size * sizeof(Map_Item*));
+	iterator->items = malloc(map.occupied * sizeof(Map_Item*));
 	if(iterator->items == NULL)
 		return MAP_ERROR_MEMALLOCATION;
 
@@ -152,7 +152,7 @@ Map_Return_Code map_collect(Map map, Map_Collection* iterator) {
 		}
 	}
 
-	iterator->size = map.size;
+	iterator->size = map.occupied;
 
 	return MAP_EXECUTION_SUCCESS;
 }
@@ -334,8 +334,6 @@ Map_Return_Code map_delete(Map* map) {
 			map->items[index] = NULL;
 		}	
 	}
-
-	free(map);
 
 	return MAP_EXECUTION_SUCCESS;
 }
