@@ -5,7 +5,7 @@
 #define MAP_MAX_SIZE 4000000000
 #define MAP_MAX_KEY_LENGTH 64
 
-// Error codes
+// Error constants
 #define MAP_ERROR_MEMALLOCATION 0
 #define MAP_ERROR_OVERFLOW 1
 #define MAP_ERROR_ITEM_NOT_FOUND 2
@@ -82,8 +82,8 @@ Map_Return_Code map_delete_collection(Map_Collection* iterator);
 /* Collision strategies helper functions */
 float get_shrink_factor(Map_UInt size);
 float get_growth_factor(Map_UInt size);
-Map_Return_Code is_map_to_small(Map_UInt occupied, Map_UInt size);
-Map_Return_Code is_map_to_big(Map_UInt occupied, Map_UInt size);
+Map_Bool is_map_to_small(Map_UInt occupied, Map_UInt size);
+Map_Bool is_map_to_big(Map_UInt occupied, Map_UInt size);
 Map_UInt get_prime_from(Map_UInt from);
 /* Utility functions */
 void map_reset_hash_if(Map_Hash* hash, Map_UInt size);
