@@ -7,7 +7,8 @@
 */
 
 CMAP_Ret_Code cmap_gen_hash(CMAP_Hash* const hash, CMAP_Hash const size, CMAP_Char_Ptr const key) {
-	CMAP_SAFE_CHECK(hash == NULL || key == NULL, CMAP_ERROR_INVALID_PTR);
+	CMAP_FAIL_IF(hash == NULL || key == NULL, CMAP_ERROR_INVALID_PTR);
+	CMAP_FAIL_IF(size == 0,                   CMAP_ERROR_INVALID_SIZE);
 
 	CMAP_Hash l_hash = 14695981039346656037UL;
 	CMAP_Char_Ptr c_key = key;
@@ -15,8 +16,10 @@ CMAP_Ret_Code cmap_gen_hash(CMAP_Hash* const hash, CMAP_Hash const size, CMAP_Ch
 
 	while(ch != CMAP_NULL_TERMINATOR) {
 		ch = *c_key;
+
 		l_hash ^= ch;
 		l_hash *= 1099511628211UL;
+		
 		c_key++;
 	}
 
@@ -26,9 +29,9 @@ CMAP_Ret_Code cmap_gen_hash(CMAP_Hash* const hash, CMAP_Hash const size, CMAP_Ch
 }
 
 CMAP_Ret_Code cmap_find_hash(CMAP_Hash* const hash, CMAP_Item** const items, CMAP_ULLong const occupied, CMAP_ULLong const size) {
-	CMAP_SAFE_CHECK(hash == NULL || items == NULL, CMAP_ERROR_INVALID_PTR);
-	CMAP_SAFE_CHECK(occupied == size, CMAP_ERROR_OVERFLOW);
-	CMAP_SAFE_CHECK(occupied == 0 || size == 0, CMAP_ERROR_INVALID_SIZE);
+	CMAP_FAIL_IF(hash == NULL || items == NULL, CMAP_ERROR_INVALID_PTR);
+	CMAP_FAIL_IF(occupied == size,              CMAP_ERROR_OVERFLOW);
+	CMAP_FAIL_IF(occupied == 0 || size == 0,    CMAP_ERROR_INVALID_SIZE);
 
 	CMAP_Hash l_hash = *hash;
 	CMAP_ULLong index = 0;
@@ -36,10 +39,10 @@ CMAP_Ret_Code cmap_find_hash(CMAP_Hash* const hash, CMAP_Item** const items, CMA
 	while(items[l_hash] != NULL) {
 		// Because iteration can start from any location, 
 		// set hash to 0 to iterate from the start again.
-		CMAP_RESET_IF_BIGGER_THAN_SIZE(l_hash);
+		CMAP_RESET_HASH_IF_BIGGER_THAN_SIZE(l_hash, size);
 		// If map is bigger than MAP_SMALL_SIZE and index was not passed
 		// you can not use Quadratic probe.
-		CMAP_USE_HASHING_ALGORITH(l_hash, index, size);
+		CMAP_USE_HASH_ALGORITHM(l_hash, index, size);
 	}
 
 	*hash = l_hash;
@@ -48,9 +51,9 @@ CMAP_Ret_Code cmap_find_hash(CMAP_Hash* const hash, CMAP_Item** const items, CMA
 }
 
 CMAP_Ret_Code cmap_find_hash_key(CMAP_Hash* const hash, CMAP_Item** const items, CMAP_ULLong const occupied, CMAP_ULLong const size, CMAP_Char_Ptr const key) {
-	CMAP_SAFE_CHECK(hash == NULL || key == NULL || items == NULL, CMAP_ERROR_INVALID_PTR);
-	CMAP_SAFE_CHECK(occupied == size, CMAP_ERROR_OVERFLOW);
-	CMAP_SAFE_CHECK(occupied == 0 || size == 0, CMAP_ERROR_INVALID_SIZE);
+	CMAP_FAIL_IF(hash == NULL || key == NULL || items == NULL, CMAP_ERROR_INVALID_PTR);
+	CMAP_FAIL_IF(occupied == size,                             CMAP_ERROR_OVERFLOW);
+	CMAP_FAIL_IF(occupied == 0 || size == 0,                   CMAP_ERROR_INVALID_SIZE);
 	
 	CMAP_Hash l_hash = *hash;
 	CMAP_ULLong index = 1;
@@ -62,7 +65,7 @@ CMAP_Ret_Code cmap_find_hash_key(CMAP_Hash* const hash, CMAP_Item** const items,
 	while(probe_count <= size) {
 		// Because iteration can start from any location, 
 		// set hash to 0 to iterate from the start again.
-		CMAP_RESET_IF_BIGGER_THAN_SIZE(l_hash);
+		CMAP_RESET_HASH_IF_BIGGER_THAN_SIZE(l_hash, size);
 		if(items[l_hash] != NULL && cstr_comp(key, items[l_hash]->key) == CSTR_TRUE) {
 			// Hash was found.
 			*hash = l_hash;
@@ -70,7 +73,7 @@ CMAP_Ret_Code cmap_find_hash_key(CMAP_Hash* const hash, CMAP_Item** const items,
 		}
 		// Hash was not found, calculate next hash.
 		// If map is bigger than MAP_SMALL_SIZE and index was not passed
-		CMAP_USE_HASHING_ALGORITH(l_hash, index, size);
+		CMAP_USE_HASH_ALGORITHM(l_hash, index, size);
 		probe_count++;
 	}
 
@@ -85,11 +88,11 @@ CMAP_Ret_Code cmap_find_hash_key(CMAP_Hash* const hash, CMAP_Item** const items,
 */
 
 CMAP_Ret_Code cmap_init(CMAP_Map* const this, CMAP_ULLong const size) {
-	CMAP_SAFE_CHECK(this == NULL, CMAP_ERROR_INVALID_PTR);
-	CMAP_SAFE_CHECK(size == 0, CMAP_ERROR_INVALID_SIZE);
+	CMAP_FAIL_IF(this == NULL, CMAP_ERROR_INVALID_PTR);
+	CMAP_FAIL_IF(size == 0,    CMAP_ERROR_INVALID_SIZE);
 
 	this->items = (CMAP_Item**)calloc(size, sizeof(CMAP_Item*));
-	CMAP_SAFE_CHECK(this->items == NULL, CMAP_ERROR_MEMALLOC);
+	CMAP_FAIL_IF(this->items == NULL, CMAP_ERROR_MEMALLOC);
 
 	this->size = size;
 	this->occupied = 0;
@@ -98,9 +101,9 @@ CMAP_Ret_Code cmap_init(CMAP_Map* const this, CMAP_ULLong const size) {
 }
 
 CMAP_Ret_Code cmap_set(CMAP_Map* const this, CMAP_Char_Ptr const key, CMAP_Any const value, CMAP_UShort const value_size) {
-	CMAP_SAFE_CHECK(this == NULL || key == NULL, CMAP_ERROR_INVALID_PTR);
-	CMAP_SAFE_CHECK(this->occupied >= CMAP_MAX_SIZE, CMAP_ERROR_OVERFLOW);
-	CMAP_SAFE_CHECK(value != NULL && value_size == 0, CMAP_ERROR_INVALID_SIZE);
+	CMAP_FAIL_IF(this == NULL || key == NULL,      CMAP_ERROR_INVALID_PTR);
+	CMAP_FAIL_IF(this->occupied >=                 CMAP_MAX_SIZE, CMAP_ERROR_OVERFLOW);
+	CMAP_FAIL_IF(value != NULL && value_size == 0, CMAP_ERROR_INVALID_SIZE);
 
 	// Map element is stored together with its key and value to 
 	// reduce amount of memory allocation and memory free execution [Map | Key | Value].
@@ -108,10 +111,10 @@ CMAP_Ret_Code cmap_set(CMAP_Map* const this, CMAP_Char_Ptr const key, CMAP_Any c
 	CMAP_Hash hash = 0;
 	CMAP_Ret_Code exec_code = 0;
 	CMAP_UChar key_length = cstr_len(key) + 1;
-	CMAP_SAFE_CHECK(key_length > CMAP_MAX_KEY_LENGTH, CMAP_ERROR_INVALID_KEY_LENGTH);
+	CMAP_FAIL_IF(key_length > CMAP_MAX_KEY_LENGTH, CMAP_ERROR_INVALID_KEY_LENGTH);
 		
 	// Rehash map elements and enlarge map if necessary.
-	if(is_map_to_small(this->occupied + 1, this->size))
+	if(CMAP_IS_MAP_TO_SMALL(this->occupied + 1, this->size))
 		CMAP_SAFE_CALL(cmap_resize(this, CMAP_KEY_GROWTH_SIZE))
 		
 	CMAP_SAFE_CALL(cmap_gen_hash(&hash, this->size, key));
@@ -125,20 +128,20 @@ CMAP_Ret_Code cmap_set(CMAP_Map* const this, CMAP_Char_Ptr const key, CMAP_Any c
 			// Element with the same key was found, realloc memory block, 
 			// and save new value.
 			item = (CMAP_Item*)realloc(this->items[hash], sizeof(CMAP_Item) + key_length + value_size);
-			CMAP_SAFE_CHECK(item == NULL, CMAP_ERROR_MEMALLOC);
+			CMAP_FAIL_IF(item == NULL, CMAP_ERROR_MEMALLOC);
 		} else {
 			// Element with same key was not found but hashes are equal.
 			// Find next free hash for new element.
 			CMAP_SAFE_CALL(cmap_find_hash(&hash, this->items, this->occupied, this->size));	
 
 			item = (CMAP_Item*)malloc(sizeof(CMAP_Item) + key_length + value_size);
-			CMAP_SAFE_CHECK(item == NULL, CMAP_ERROR_MEMALLOC);
+			CMAP_FAIL_IF(item == NULL, CMAP_ERROR_MEMALLOC);
 			this->occupied++;
 		}
 	} else {
 		// No collision was found, alloc memory for new element.
 		item = (CMAP_Item*)malloc(sizeof(CMAP_Item) + key_length + value_size);
-		CMAP_SAFE_CHECK(item == NULL, CMAP_ERROR_MEMALLOC);
+		CMAP_FAIL_IF(item == NULL, CMAP_ERROR_MEMALLOC);
 		this->occupied++;
 	}
 
@@ -147,14 +150,14 @@ CMAP_Ret_Code cmap_set(CMAP_Map* const this, CMAP_Char_Ptr const key, CMAP_Any c
 	item->value = item->key + key_length;
 
 	cstr_cpy(item->key, key, key_length);
-	memcpy(item->value, value, value_size);
+	cstr_cpy(item->value, value, value_size);
 
 	this->items[hash] = item;
 	return CMAP_SUCCESS;
 }
 
 CMAP_Ret_Code cmap_resize(CMAP_Map* const this, CMAP_UChar const direction) {
-	CMAP_SAFE_CHECK(this == NULL, CMAP_ERROR_INVALID_PTR);
+	CMAP_FAIL_IF(this == NULL, CMAP_ERROR_INVALID_PTR);
 
 	CMAP_ULLong old_size = this->size;
 	CMAP_Hash hash = 0;
@@ -169,7 +172,7 @@ CMAP_Ret_Code cmap_resize(CMAP_Map* const this, CMAP_UChar const direction) {
 		return CMAP_ERROR_INVALID_RESIZE_DIRECTION;
 
 	new_items = (CMAP_Item**)calloc(this->size, sizeof(CMAP_Item*));
-	CMAP_SAFE_CHECK(new_items == NULL, CMAP_ERROR_MEMALLOC);
+	CMAP_FAIL_IF(new_items == NULL, CMAP_ERROR_MEMALLOC);
 
 	for(CMAP_ULLong index = 0; index < old_size; index++) {
 		// Copy all existed elements in map.
@@ -190,7 +193,7 @@ CMAP_Ret_Code cmap_resize(CMAP_Map* const this, CMAP_UChar const direction) {
 }
 
 CMAP_Ret_Code cmap_get(CMAP_Item** const item, CMAP_Map const map, CMAP_Char_Ptr const key) {
-	CMAP_SAFE_CHECK(item == NULL || key == NULL, CMAP_ERROR_INVALID_PTR);
+	CMAP_FAIL_IF(item == NULL || key == NULL, CMAP_ERROR_INVALID_PTR);
 
 	CMAP_Hash hash = 0;
 	CMAP_Ret_Code exec_code = 0;
@@ -211,7 +214,7 @@ CMAP_Ret_Code cmap_get(CMAP_Item** const item, CMAP_Map const map, CMAP_Char_Ptr
 
 	*item = map.items[hash];
 
-	return *item == NULL ? CMAP_ERROR_ITEM_NOT_FOUND : CMAP_SUCCESS;
+	return *item == NULL ? CMAP_ERROR_ITEM_NOT_FOUND : CMAP_ITEM_FOUND;
 }
 
 CMAP_Ret_Code map_delete(CMAP_Map* const this) {
@@ -226,30 +229,24 @@ CMAP_Ret_Code map_delete(CMAP_Map* const this) {
 }
 
 CMAP_Ret_Code cmap_delete_item(CMAP_Map* const this, CMAP_Hash* const hash, CMAP_Char_Ptr const key) {
-	CMAP_SAFE_CHECK(this == NULL && (key == NULL && hash == NULL), CMAP_ERROR_INVALID_PTR);
-	
+	CMAP_FAIL_IF(this == NULL && (key == NULL && hash == NULL), CMAP_ERROR_INVALID_PTR);
+
 	CMAP_Hash l_hash = hash == NULL ? 0 : *hash;
 	CMAP_Ret_Code exec_code = 0;
-
-	if(hash != NULL && this->items[l_hash] == NULL) {
-		return CMAP_ERROR_ITEM_NOT_FOUND;
-	} else if(hash != NULL && this->items[l_hash] != NULL) {
-		// Delete map item by defined hash.
-		free(this->items[l_hash]);
-		this->items[l_hash] = NULL;
-		this->occupied--;
-	} else {	
+	CMAP_FAIL_IF(hash != NULL && this->items[l_hash] == NULL,   CMAP_ERROR_ITEM_NOT_FOUND);	
+	
+	if(hash == NULL) {
 		// Delete map item by key.
 		CMAP_SAFE_CALL(cmap_gen_hash(&l_hash, this->size, key));		
 		if(cmap_find_hash_key(&l_hash, this->items, this->occupied, this->size, key) == CMAP_ERROR_ITEM_NOT_FOUND)
-			return CMAP_ERROR_ITEM_NOT_FOUND;
-
-		free(this->items[l_hash]);
-		this->items[l_hash] = NULL;
-		this->occupied--;
+			return CMAP_ERROR_ITEM_NOT_FOUND;		
 	}
+	
+	free(this->items[l_hash]);
+	this->items[l_hash] = NULL;
+	this->occupied--;
 
-	if(is_map_to_big(this->occupied, this->size))
+	if(CMAP_IS_MAP_TO_BIG(this->occupied, this->size))
 		CMAP_SAFE_CALL(cmap_resize(this, CMAP_KEY_SHRINK_SIZE));
 
 	return CMAP_SUCCESS;

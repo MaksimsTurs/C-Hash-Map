@@ -2,7 +2,6 @@
 /*=======================================================================*/
 
 #include <stdlib.h>
-#include <string.h>
 
 #include "./include/CString.h"
 
@@ -15,6 +14,7 @@ typedef char               CMAP_Char;
 typedef char*              CMAP_Char_Ptr;
 
 typedef void*              CMAP_Any;
+typedef void               CMAP_None;
 
 typedef unsigned int       CMAP_UInt;
 
@@ -58,30 +58,31 @@ typedef float              CMAP_Float;
 // Map characters
 #define CMAP_NULL_TERMINATOR                '\0'
 
-#define CMAP_SAFE_CHECK(cond, error_code) do { \
-	if(cond)                                     \
-		return error_code;                         \
+// Map utils macros.
+#define CMAP_FAIL_IF(condition, error_message)          do { if(condition) return error_message; } while(0);
+#define CMAP_RESET_HASH_IF_BIGGER_THAN_SIZE(hash, size) do { if((hash + 1) >= size) hash = 0; } while(0);
+#define CMAP_USE_HASH_ALGORITHM(hash, index, size) do { \
+	if(size <= CMAP_SMALL_SIZE) {                         \
+		hash += 1;                                          \
+	}	else {                                              \
+		hash = (hash + (index ^ 2)) % size;                 \
+		index += 1;                                         \
+	}	                                                    \
+} while(0);
+#define CMAP_SAFE_CALL(x) do {                     \
+	CMAP_Ret_Code exec_code = (x);                   \
+	if (exec_code != CMAP_SUCCESS) return exec_code; \
 } while (0);
-#define CMAP_SAFE_CALL(x) do {   \
-	CMAP_Ret_Code exec_code = (x); \
-	if (exec_code != CMAP_SUCCESS) \
-			return exec_code;          \
-	} while (0);
-#define CMAP_RESET_IF_BIGGER_THAN_SIZE(hash) do { \
-	if((hash + 1) >= size)                          \
-		hash = 0;                                     \
-} while (0);
-#define CMAP_USE_HASHING_ALGORITH(hash, index, size) do {       \
-	if(size <= CMAP_SMALL_SIZE) {                                 \
-		hash += 1;                                                  \
-	}	else {                                                      \
-		hash = (hash + (index ^ 2)) % size;                         \
-		index += 1;                                                 \
-	}	                                                            \
-} while (0);
-#define CMAP_GET_PRIME_FROM(x)                      \
-	(x * 2) >= CMAP_MAX_SIZE ? CMAP_MAX_SIZE : x * 2;
-	
+#define CMAP_GET_SHRINK_FACTOR(size) size >= CMAP_BIG_SIZE    ? CMAP_BIG_SHRINK_AT    :                      \
+																		 size >= CMAP_MEDIUM_SIZE ? CMAP_MEDIUM_SHRINK_AT :                      \
+																		 size <= CMAP_SMALL_SIZE  ? CMAP_SMALL_SHRINK_AT  : CMAP_SMALL_SHRINK_AT
+#define CMAP_GET_GROWTH_FACTOR(size) size >= CMAP_BIG_SIZE    ? CMAP_BIG_GROWTH_AT    :                      \
+																		 size >= CMAP_MEDIUM_SIZE ? CMAP_MEDIUM_GROWTH_AT :                      \
+																		 size <= CMAP_SMALL_SIZE  ? CMAP_SMALL_GROWTH_AT  : CMAP_SMALL_GROWTH_AT
+#define CMAP_GET_PRIME_FROM(x)               (x * 2) >= CMAP_MAX_SIZE ? CMAP_MAX_SIZE : x * 2;
+#define CMAP_IS_MAP_TO_SMALL(occupied, size) ((CMAP_Float)occupied / size) >= (CMAP_GET_GROWTH_FACTOR(size))
+#define CMAP_IS_MAP_TO_BIG(occupied, size)   ((CMAP_Float)occupied / size) <= (CMAP_GET_SHRINK_FACTOR(size))
+
 /*=======================================================================*/
 
 typedef struct CMAP_Item {
@@ -108,37 +109,5 @@ CMAP_Ret_Code cmap_set(CMAP_Map* const this, CMAP_Char_Ptr const key, CMAP_Any c
 CMAP_Ret_Code cmap_delete(CMAP_Map* const this);
 CMAP_Ret_Code cmap_get(CMAP_Item** const item, CMAP_Map const map, CMAP_Char_Ptr const key);
 CMAP_Ret_Code cmap_delete_item(CMAP_Map* const this, CMAP_Hash* const hash, CMAP_Char_Ptr const key);
-/* Collision strategies helper functions */
-static inline CMAP_Float get_shrink_factor(const CMAP_Hash size);
-static inline CMAP_Float get_shrink_factor(const CMAP_Hash size) {
-	if(size >= CMAP_BIG_SIZE)
-		return CMAP_BIG_SHRINK_AT;
-	else if(size >= CMAP_MEDIUM_SIZE)
-		return CMAP_MEDIUM_SHRINK_AT;
-	else if(size <= CMAP_SMALL_SIZE)
-		return CMAP_SMALL_SHRINK_AT;
-	return CMAP_SMALL_SHRINK_AT;
-}
-static inline CMAP_Float get_growth_factor(const CMAP_Hash size);
-static inline CMAP_Float get_growth_factor(const CMAP_Hash size) {
-	if(size >= CMAP_BIG_SIZE)
-		return CMAP_BIG_GROWTH_AT;
-	else if(size >= CMAP_MEDIUM_SIZE)
-		return CMAP_MEDIUM_GROWTH_AT;
-	else if(size <= CMAP_SMALL_SIZE)
-		return CMAP_SMALL_GROWTH_AT;
-	return CMAP_SMALL_GROWTH_AT;
-}
-static inline CMAP_Bool is_map_to_small(CMAP_ULLong const occupied, CMAP_ULLong const size);
-static inline CMAP_Bool is_map_to_small(CMAP_ULLong const occupied, CMAP_ULLong const size) {
-	if(occupied == CMAP_MAX_SIZE || occupied == 0)
-		return CMAP_FALSE;
-	return((CMAP_Float)occupied / size) >= get_growth_factor(size);
-}
-static inline CMAP_Bool is_map_to_big(CMAP_ULLong const occupied, CMAP_ULLong const size);
-static inline CMAP_Bool is_map_to_big(CMAP_ULLong const occupied, CMAP_ULLong const size) {
-	if(occupied == CMAP_MAX_SIZE || occupied == 0)
-		return CMAP_FALSE;
-	return((CMAP_Float)occupied / size) <= get_shrink_factor(size);
-}
+
 /*=======================================================================*/

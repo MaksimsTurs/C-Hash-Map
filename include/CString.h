@@ -44,6 +44,11 @@ typedef double             CSTR_Double;
 // Character constants.
 #define CSTR_NULL_TERMINATOR         (CSTR_UChar)'\0'
 
+// Utils macros.
+#define CSTR_FAIL_IF(condition, error_code) do { \
+	if(condition) return error_code;              \
+} while(0);
+
 /*=======================================================================*/
 
 typedef struct {
@@ -65,11 +70,11 @@ typedef struct {
 
 CSTR_Ret_Code cstr_build(CSTR_String* const this, CSTR_Char_Ptr const value);
 CSTR_Ret_Code cstr_free(CSTR_String* const this);
+CSTR_Ret_Code cstr_split(CSTR_Slices* const this, CSTR_Char_Ptr const to_split, CSTR_Char const spliter);
+CSTR_Ret_Code cstr_split_free(CSTR_Slices* const this);
 CSTR_Ret_Code cstr_append(CSTR_String* const this, CSTR_Char_Ptr append_string, CSTR_UChar const count);
 CSTR_Ret_Code cstr_slice(CSTR_String* const this, CSTR_ULLong const start, CSTR_ULLong const end);
 CSTR_LLong    cstr_index_of(CSTR_String* const this, CSTR_Char const ch, CSTR_ULLong const start_position);
-CSTR_Ret_Code cstr_split(CSTR_Slices* const this, CSTR_Char_Ptr const to_split, CSTR_Char const spliter);
-CSTR_Ret_Code cstr_split_free(CSTR_Slices* const this);
 
 CSTR_Ret_Code cstr_cpy(CSTR_Char_Ptr const dest, CSTR_Char_Ptr const source, CSTR_LLong const length);
 CSTR_ULLong   cstr_len(CSTR_Char_Ptr const value);
