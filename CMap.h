@@ -11,7 +11,6 @@ typedef unsigned char      CMAP_Ret_Code;
 typedef unsigned char      CMAP_Bool;
 typedef unsigned char      CMAP_UChar;
 typedef char               CMAP_Char;
-typedef char*              CMAP_Char_Ptr;
 
 typedef void*              CMAP_Any;
 typedef void               CMAP_None;
@@ -79,14 +78,14 @@ typedef float              CMAP_Float;
 #define CMAP_GET_GROWTH_FACTOR(size) size >= CMAP_BIG_SIZE    ? CMAP_BIG_GROWTH_AT    :                      \
 																		 size >= CMAP_MEDIUM_SIZE ? CMAP_MEDIUM_GROWTH_AT :                      \
 																		 size <= CMAP_SMALL_SIZE  ? CMAP_SMALL_GROWTH_AT  : CMAP_SMALL_GROWTH_AT
-#define CMAP_GET_PRIME_FROM(x)               (x * 2) >= CMAP_MAX_SIZE ? CMAP_MAX_SIZE : x * 2;
+#define CMAP_GET_PRIME_FROM(x)               (x * 2) >= CMAP_MAX_SIZE ? CMAP_MAX_SIZE : x * 2
 #define CMAP_IS_MAP_TO_SMALL(occupied, size) ((CMAP_Float)occupied / size) >= (CMAP_GET_GROWTH_FACTOR(size))
 #define CMAP_IS_MAP_TO_BIG(occupied, size)   ((CMAP_Float)occupied / size) <= (CMAP_GET_SHRINK_FACTOR(size))
 
 /*=======================================================================*/
 
 typedef struct CMAP_Item {
-	CMAP_Char_Ptr key;
+	CMAP_Char* key;
 	CMAP_Any value;
 } CMAP_Item;
 
@@ -99,15 +98,15 @@ typedef struct CMAP_Map {
 /*=======================================================================*/
 
 /* Hashing and Collision handle functions */
-CMAP_Ret_Code cmap_gen_hash(CMAP_Hash* const hash, CMAP_Hash const size, CMAP_Char_Ptr const key);
-CMAP_Ret_Code cmap_find_hash(CMAP_Hash* const hash, CMAP_Item** const items, CMAP_ULLong const occupied, CMAP_ULLong const size);
-CMAP_Ret_Code cmap_find_hash_key(CMAP_Hash* const hash, CMAP_Item** const items, CMAP_ULLong const occupied, CMAP_ULLong const size, CMAP_Char_Ptr const key);
+CMAP_Ret_Code cmap_gen_hash(CMAP_Hash* const hash, const CMAP_Char* key, CMAP_Hash size);
+CMAP_Ret_Code cmap_find_hash(CMAP_Hash* const hash, const CMAP_Item** items, CMAP_ULLong occupied, CMAP_ULLong size);
+CMAP_Ret_Code cmap_find_hash_key(CMAP_Hash* const hash, const CMAP_Char* key, const CMAP_Item** items, CMAP_ULLong occupied, CMAP_ULLong size);
 /* API functions */
-CMAP_Ret_Code cmap_init(CMAP_Map* const this, CMAP_ULLong const size);
-CMAP_Ret_Code cmap_resize(CMAP_Map* const this, CMAP_UChar const direction);
-CMAP_Ret_Code cmap_set(CMAP_Map* const this, CMAP_Char_Ptr const key, CMAP_Any const value, CMAP_UShort const value_size);
-CMAP_Ret_Code cmap_delete(CMAP_Map* const this);
-CMAP_Ret_Code cmap_get(CMAP_Item** const item, CMAP_Map const map, CMAP_Char_Ptr const key);
-CMAP_Ret_Code cmap_delete_item(CMAP_Map* const this, CMAP_Hash* const hash, CMAP_Char_Ptr const key);
+CMAP_Ret_Code cmap_init(CMAP_Map* const this, CMAP_ULLong size);
+CMAP_Ret_Code cmap_resize(CMAP_Map* const this, CMAP_UChar direction);
+CMAP_Ret_Code cmap_set(CMAP_Map* const this, const CMAP_Char* key, const CMAP_Any value, CMAP_UShort value_size);
+CMAP_Ret_Code map_delete(CMAP_Map* this);
+CMAP_Ret_Code cmap_get(const CMAP_Item** item, const CMAP_Char* key, CMAP_Map map);
+CMAP_Ret_Code cmap_delete_item(const CMAP_Hash* hash, const CMAP_Char* key, CMAP_Map* const this);
 
 /*=======================================================================*/
