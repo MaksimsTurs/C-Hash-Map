@@ -225,13 +225,14 @@ CMAP_Ret_Code cmap_get(const CMAP_Item** item, const CMAP_Char* key, CMAP_Map ma
 	return *item == NULL ? CMAP_ERROR_ITEM_NOT_FOUND : CMAP_ITEM_FOUND;
 }
 
-CMAP_Ret_Code map_delete(CMAP_Map* this) {
+CMAP_Ret_Code cmap_delete(CMAP_Map* this) {
 	for(CMAP_ULLong index = 0; index < this->size; index++) {
-		if(this->items[index] != NULL) {
-			free(this->items[index]);
-			this->items[index] = NULL;
-		}
+		free(this->items[index]);
+		this->items[index] = NULL;
 	}
+
+	free(this->items);
+	this->items = NULL;
 
 	return CMAP_SUCCESS;
 }

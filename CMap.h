@@ -105,7 +105,7 @@ CMAP_Ret_Code cmap_find_hash_key(CMAP_Hash* const hash, const CMAP_Char* key, co
 CMAP_Ret_Code cmap_init(CMAP_Map* const this, CMAP_ULLong size);
 CMAP_Ret_Code cmap_resize(CMAP_Map* const this, CMAP_UChar direction);
 CMAP_Ret_Code cmap_set(CMAP_Map* const this, const CMAP_Char* key, const CMAP_Any value, CMAP_UShort value_size);
-CMAP_Ret_Code map_delete(CMAP_Map* this);
+CMAP_Ret_Code cmap_delete(CMAP_Map* this);
 CMAP_Ret_Code cmap_get(const CMAP_Item** item, const CMAP_Char* key, CMAP_Map map);
 CMAP_Ret_Code cmap_delete_item(const CMAP_Hash* hash, const CMAP_Char* key, CMAP_Map* const this);
 
