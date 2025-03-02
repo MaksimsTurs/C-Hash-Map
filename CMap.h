@@ -2,7 +2,9 @@
 
 /*=======================================================================*/
 
+#include <string.h>
 #include <stdlib.h>
+#include <stdio.h>
 
 #include "./include/CString.h"
 
@@ -109,8 +111,11 @@ typedef struct CMAP_Map {
 /*=======================================================================*/
 
 /* Hashing and Collision handle functions */
+static inline __attribute__((always_inline)) 
 CMAP_Ret_Code cmap_gen_hash(CMAP_Hash* const hash, const CMAP_Char* key, CMAP_Hash size);
+static inline __attribute__((always_inline)) 
 CMAP_Ret_Code cmap_find_hash(CMAP_Hash* const hash, const CMAP_Item** items, CMAP_ULLong occupied, CMAP_ULLong size);
+static inline __attribute__((always_inline)) 
 CMAP_Ret_Code cmap_find_hash_key(CMAP_Hash* const hash, const CMAP_Char* key, const CMAP_Item** items, CMAP_ULLong occupied, CMAP_ULLong size);
 /* Helper functions */
 CMAP_Ret_Code cmap_resize(CMAP_Map* this, CMAP_UChar direction);
