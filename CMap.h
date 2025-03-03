@@ -114,7 +114,7 @@ typedef float              CMAP_Float;
 
 typedef struct CMAP_Item {
 	CMAP_Char* key;
-	CMAP_Any value;
+	CMAP_Any   value;
 } CMAP_Item;
 
 typedef struct CMAP_Map {
